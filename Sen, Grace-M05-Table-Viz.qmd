@@ -1,0 +1,200 @@
+---
+title: "M05—Visualizing Data with Tables for MSDM CEP"
+author: "Grace Sen"
+date: '`r format(Sys.time())`'
+format: 
+  html: 
+    toc: true
+    number-sections: true
+    code-link: true
+    embed-resources: true
+editor: visual
+execute: 
+  freeze: auto
+---
+
+# Overview
+
+This report summarizes what I learned about creating customizable tables with the **gt** and **gtExtras** packages.
+
+::: {.callout-note title="Reproducibility Note"}
+This report uses the `dplyr`, `gt`, and `gtExtras` packages. If they are not installed, run `install.packages(c("dplyr", "gt", "gtExtras"))` once in the RStudio Console.
+:::
+
+# Reflection on Customizable Tables
+
+## Prompt 1
+
+> Summarize what you learned from the videos you watched.
+
+I learned that a table can be designed as a visual rather than presented as plain output. The **gt** package builds a table in layers: first the data are prepared, and then titles, labels, spanners, number formats, colors, notes, and footnotes are added.
+
+I also learned that **gtExtras** extends a table with small visual elements such as bars and sparklines. The main lesson was that every design choice should help the reader understand the data more quickly.
+
+## Prompt 2
+
+> What did you like about the gt and gtExtras packages demonstrated in the videos?
+
+::: panel-tabset
+### What I liked about gt
+
+- Clear titles, subtitles, and column labels
+- Flexible currency and decimal formatting
+- Footnotes, source notes, and color scales
+- Professional-looking tables made directly in R
+
+### What I liked about gtExtras
+
+- Small charts fit inside table cells
+- Visual comparisons are easier to notice
+- The table remains compact enough for reports and slides
+:::
+
+## Prompt 3
+
+> How do tables complement charts for data visualization?
+
+Charts make patterns, trends, and differences easy to notice, while tables provide exact numbers. Using them together gives the audience both a quick summary and the detail needed to verify the result.
+
+::: callout-note
+## Example
+
+A chart can show which product category performs best, while a table can show its exact sales, revenue, and average price.
+:::
+
+## Prompt 4
+
+> Under what circumstances would you prefer to use tables rather than charts to visualize data?
+
+I would use a table when readers need exact values, when several measures must be compared at the same time, or when the number of categories is small. Tables are also useful for presenting descriptive statistics and business metrics that managers may want to reference later.
+
+# Table for the MSDM CEP
+
+> Use data relevant to your Analytics Objectives and share descriptive statistics using gt and gtExtras.
+
+Because my CEP actual client data are not available yet, I used the built-in `pizzaplace` dataset as a practice example. The variables in this analysis (pizza category, items sold, product variety, revenue, and average price) are similar to the measures that could later be used to evaluate menu performance and promotional decisions.
+
+```{r}
+#| label: setup
+#| include: false
+
+library(dplyr)
+library(gt)
+library(gtExtras)
+```
+
+```{r}
+#| label: prepare-data
+#| echo: true
+#| code-fold: true
+#| code-summary: "Show data preparation code"
+
+pizza_summary <- gt::pizzaplace |>
+  group_by(type) |>
+  summarise(
+    Items_Sold = n(),
+    Unique_Pizzas = n_distinct(name),
+    Total_Revenue = sum(price, na.rm = TRUE),
+    Average_Item_Price = mean(price, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(
+    Revenue_Share = Total_Revenue / sum(Total_Revenue),
+    Pizza_Category = tools::toTitleCase(type)
+  ) |>
+  select(
+    Pizza_Category,
+    Items_Sold,
+    Unique_Pizzas,
+    Total_Revenue,
+    Average_Item_Price,
+    Revenue_Share
+  ) |>
+  arrange(desc(Total_Revenue))
+```
+
+@tbl-pizza-performance combines exact values with an inline revenue-share bar. This makes it possible to compare category performance without moving between a separate table and chart.
+
+```{r}
+#| label: tbl-pizza-performance
+#| tbl-cap: "Pizza Category Sales and Revenue Performance"
+#| echo: false
+
+pizza_summary |>
+  gt(rowname_col = "Pizza_Category") |>
+  tab_header(
+    title = md("**Pizza Category Performance**"),
+    subtitle = "Descriptive statistics for menu and promotion planning"
+  ) |>
+  tab_stubhead(label = "Pizza Category") |>
+  tab_spanner(
+    label = "Sales Volume",
+    columns = c(Items_Sold, Unique_Pizzas)
+  ) |>
+  tab_spanner(
+    label = "Revenue Performance",
+    columns = c(Total_Revenue, Average_Item_Price, Revenue_Share)
+  ) |>
+  cols_label(
+    Items_Sold = "Items Sold",
+    Unique_Pizzas = "Menu Items",
+    Total_Revenue = "Total Revenue",
+    Average_Item_Price = "Average Price",
+    Revenue_Share = "Share of Revenue"
+  ) |>
+  fmt_integer(columns = c(Items_Sold, Unique_Pizzas)) |>
+  fmt_currency(
+    columns = c(Total_Revenue, Average_Item_Price),
+    currency = "USD",
+    decimals = 2
+  ) |>
+  data_color(
+    columns = Total_Revenue,
+    palette = c("lightpink", "lightblue")
+  ) |>
+  gtExtras::gt_plt_bar(
+    column = Revenue_Share,
+    color = "lightblue",
+    width = 55,
+    scale_type = "percent",
+    decimals = 1
+  ) |>
+  tab_footnote(
+    footnote = "Items sold represents individual pizzas recorded in the dataset, not unique customer orders.",
+    locations = cells_column_labels(columns = Items_Sold)
+  ) |>
+  tab_footnote(
+    footnote = "Revenue share is each category's percentage of total revenue.",
+    locations = cells_column_labels(columns = Revenue_Share)
+  ) |>
+  tab_source_note(
+    source_note = md("Source: `pizzaplace` dataset included with the **gt** package.")
+  ) |>
+  opt_row_striping() |>
+  tab_options(
+    table.width = pct(90),
+    heading.align = "left",
+    column_labels.font.weight = "bold"
+  )
+```
+
+::: {.callout-tip title="How to Read the Table"}
+The darker cells identify categories with more total revenue. The inline bars show each category's share of revenue, making the main comparison visible at a glance.
+:::
+
+# Value to the MSDM Project
+
+> Explain why the table is worth adding to your MSDM project report or presentation slides.
+
+This table is useful because it summarizes several performance measures in one place. A restaurant manager could quickly identify which menu categories generate the most revenue, compare average prices, and see how much each category contributes to total sales.
+
+In the final CEP, the same format could be adapted to compare promotion types, social media content, customer segments, or time periods. It would support decisions about which offers and products deserve more marketing attention.
+
+The table is especially suitable for a presentation because it is compact, easy to scan, and still provides the exact numbers needed for discussion.
+
+# Appendix
+
+## Project Links
+
+- [GitHub repository](https://github.com/gracesen/IBM-6500-M05)
+- [Published](https://gracesen.github.io/IBM-6500-M05/)[ HTML report](https://YOUR-GITHUB-USERNAME.github.io/YOUR-M05-REPOSITORY/Sen-Grace-M05-Table-Viz.html)
